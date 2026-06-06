@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SMART BRIDGE AI CONTROL CENTER</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="sidebar">
+<h2>🌉 SMART BRIDGE AI</h2>
+
+<ul>
+<li onclick="showPage('dashboard')">Dashboard</li>
+<li onclick="showPage('digitalTwin')">Digital Twin</li>
+<li onclick="showPage('cctv')">CCTV</li>
+<li onclick="showPage('traffic')">Traffic</li>
+<li onclick="showPage('analytics')">Analytics</li>
+<li onclick="showPage('forecast')">Forecast</li>
+<li onclick="showPage('settings')">Settings</li>
+</ul>
+
+</div>
+
+<div class="main">
+<div id="page-content"></div>
+</div>
+
+</div>
+
+<script src="dashboard.js"></script>
+
+</body>
+</html>
