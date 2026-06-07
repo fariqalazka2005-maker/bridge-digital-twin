@@ -475,3 +475,52 @@ grid-template-columns:1fr;
 grid-template-columns:1fr;
 }
 }
+
+.time-filter-bar{
+display:grid;
+grid-template-columns:1fr 1fr 1fr 1fr;
+gap:15px;
+margin-bottom:20px;
+}
+
+.time-filter-bar label{
+display:block;
+font-size:14px;
+margin-bottom:6px;
+color:#93c5fd;
+font-weight:bold;
+}
+
+.time-select{
+width:100%;
+background:#1e293b;
+color:white;
+border:1px solid #334155;
+padding:10px;
+border-radius:8px;
+font-weight:bold;
+}
+
+.time-info-box{
+background:#1e293b;
+padding:12px;
+border-radius:10px;
+}
+
+.time-info-box span{
+display:block;
+font-size:13px;
+color:#94a3b8;
+margin-bottom:5px;
+}
+
+.time-info-box strong{
+font-size:18px;
+color:white;
+}
+
+@media(max-width:1000px){
+.time-filter-bar{
+grid-template-columns:1fr 1fr;
+}
+}

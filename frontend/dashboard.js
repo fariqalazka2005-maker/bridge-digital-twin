@@ -23,6 +23,8 @@ let bridgeData = [];
 let liveData = null;
 let currentRefreshRate = 2000;
 
+let selectedTimeRange = "today";
+
 let realtimeHistory = [];
 const REALTIME_MAX_POINTS = 30;
 
@@ -244,6 +246,7 @@ if(page === "analytics"){
         <table class="sensor-table">
             <thead>
                 <tr>
+                    <th>Time</th>
                     <th>Sensor ID</th>
                     <th>FFT Peak</th>
                     <th>Degradation</th>
@@ -325,6 +328,7 @@ if(page === "forecast"){
         <table class="forecast-table">
             <thead>
                 <tr>
+                   <th>Time</th>
                     <th>Sensor ID</th>
                     <th>Current Degradation</th>
                     <th>30-Day Forecast</th>
@@ -471,6 +475,36 @@ c.innerHTML = `
 
 </div>
 
+<div class="time-filter-bar">
+
+    <div>
+        <label>Time Range</label>
+        <select id="timeRangeSelect" class="time-select">
+            <option value="today">Hari Ini</option>
+            <option value="week">7 Hari Terakhir</option>
+            <option value="month">30 Hari Terakhir</option>
+            <option value="year">1 Tahun Terakhir</option>
+            <option value="all">Semua Data</option>
+        </select>
+    </div>
+
+    <div class="time-info-box">
+        <span>Range:</span>
+        <strong id="dataRangeInfo">--</strong>
+    </div>
+
+    <div class="time-info-box">
+        <span>Total:</span>
+        <strong id="dataPointCount">--</strong>
+    </div>
+
+    <div class="time-info-box">
+        <span>Last Update:</span>
+        <strong id="lastUpdate">--</strong>
+    </div>
+
+</div>
+
 <div class="cards">
 
     <div class="card">
@@ -545,6 +579,7 @@ c.innerHTML = `
 `;
 
 startClock();
+initTimeRangeControls();
 fetchData();
 fetchLive();
 
@@ -575,14 +610,30 @@ clockInterval = setInterval(()=>{
 
 function fetchData(){
 
-fetch("http://127.0.0.1:5000/api/history")
+fetch(`${API_BASE}/api/history?range=${selectedTimeRange}`)
 .then(r => r.json())
-.then(d => {
+.then(result => {
 
-    bridgeData = d;
+    bridgeData = result.data;
+
+    setText("lastUpdate", result.last_update);
+    setText("dataRangeInfo", getRangeLabel(selectedTimeRange));
+    setText("dataPointCount", result.count + " data");
 
     if(document.getElementById("c1")){
         renderCharts();
+    }
+
+    if(document.getElementById("trafficChart")){
+        renderTrafficChart();
+    }
+
+    if(document.getElementById("avgFFT")){
+        renderAnalytics();
+    }
+
+    if(document.getElementById("forecastDamage")){
+        renderForecastPage();
     }
 
 })
@@ -633,6 +684,7 @@ fetch("http://127.0.0.1:5000/api/live")
     setText("damage", d.damage_class);
     setText("forecast", d.forecast_score_next_30d.toFixed(1));
     setText("bridgeStatus", status);
+    setText("lastUpdate", d.last_update);
 
     const alarmPanel = document.getElementById("alarmPanel");
 
@@ -678,6 +730,79 @@ if(el){
 
 }
 
+function getRangeLabel(range){
+
+if(range === "today"){
+    return "Data Hari Ini";
+}
+
+if(range === "week"){
+    return "Data 7 Hari Terakhir";
+}
+
+if(range === "month"){
+    return "Data 30 Hari Terakhir";
+}
+
+if(range === "year"){
+    return "Data 1 Tahun Terakhir";
+}
+
+return "Semua Data";
+
+}
+
+function formatTimeLabel(timestamp){
+
+if(!timestamp){
+    return "--";
+}
+
+const date =
+new Date(timestamp.replace(" ", "T"));
+
+if(isNaN(date.getTime())){
+    return timestamp;
+}
+
+if(selectedTimeRange === "today"){
+    return date.toLocaleTimeString("id-ID", {
+        hour:"2-digit",
+        minute:"2-digit"
+    });
+}
+
+return date.toLocaleDateString("id-ID", {
+    day:"2-digit",
+    month:"short",
+    year:"2-digit"
+});
+
+}
+
+function initTimeRangeControls(){
+
+const select =
+document.getElementById("timeRangeSelect");
+
+if(!select){
+    return;
+}
+
+select.value = selectedTimeRange;
+
+select.addEventListener("change", function(){
+
+    selectedTimeRange = this.value;
+
+    realtimeHistory = [];
+
+    fetchData();
+    fetchLive();
+
+});
+
+}
 
 // ================= CHART =================
 
@@ -687,7 +812,7 @@ if(!bridgeData || bridgeData.length === 0){
     return;
 }
 
-const labels = bridgeData.map(x => x.sensor_id);
+const labels = bridgeData.map(x => formatTimeLabel(x.timestamp));
 
 if(tempChart) tempChart.destroy();
 if(fftChart) fftChart.destroy();
@@ -1626,7 +1751,7 @@ if(trafficChart){
     trafficChart.destroy();
 }
 
-const labels = bridgeData.slice(0,20).map((_,i) => "T" + (i+1));
+const labels = bridgeData.slice(0,20).map(d => formatTimeLabel(d.timestamp));
 
 const volumeData = bridgeData.slice(0,20).map(d => {
 
@@ -1761,7 +1886,7 @@ renderAnalyticsTable();
 function renderAnalyticsCharts(){
 
 const labels =
-bridgeData.map((d,i)=>d.sensor_id + "-" + (i+1));
+bridgeData.map(d => formatTimeLabel(d.timestamp));
 
 const fftData =
 bridgeData.map(d=>d.fft_peak_freq);
@@ -1918,12 +2043,15 @@ bridgeData.slice(0,15).forEach(d=>{
 
     rows += `
     <tr>
-        <td>${d.sensor_id}</td>
-        <td>${d.fft_peak_freq.toFixed(2)}</td>
-        <td>${d.degradation_score.toFixed(1)}</td>
-        <td>${d.damage_class}</td>
-        <td class="${riskClass}">${risk}</td>
-    </tr>
+        <tr>
+    <td>${formatTimeLabel(d.timestamp)}</td>
+    <td>${d.sensor_id}</td>
+    <td>${d.fft_peak_freq.toFixed(2)}</td>
+    <td>${d.degradation_score.toFixed(1)}</td>
+    <td>${d.damage_class}</td>
+    <td class="${riskClass}">${risk}</td>
+</tr>
+    
     `;
 
 });
@@ -2057,7 +2185,7 @@ const dataSlice =
 bridgeData.slice(0,30);
 
 const labels =
-dataSlice.map((_,i) => "T" + (i+1));
+dataSlice.map(d => formatTimeLabel(d.timestamp));
 
 const degradationData =
 dataSlice.map(d => d.degradation_score);
@@ -2134,13 +2262,14 @@ bridgeData.slice(0,15).forEach(d => {
     }
 
     rows += `
-    <tr>
-        <td>${d.sensor_id}</td>
-        <td>${d.degradation_score.toFixed(1)}</td>
-        <td>${d.forecast_score_next_30d.toFixed(1)}</td>
-        <td>${d.damage_class}</td>
-        <td class="${priorityClass}">${priority}</td>
-    </tr>
+   <tr>
+    <td>${formatTimeLabel(d.timestamp)}</td>
+    <td>${d.sensor_id}</td>
+    <td>${d.degradation_score.toFixed(1)}</td>
+    <td>${d.forecast_score_next_30d.toFixed(1)}</td>
+    <td>${d.damage_class}</td>
+    <td class="${priorityClass}">${priority}</td>
+</tr>
     `;
 
 });
@@ -2582,13 +2711,14 @@ realtimeHistory
     }
 
     rows += `
-    <tr>
-        <td>${d.sensor_id}</td>
-        <td>${d.fft.toFixed(2)}</td>
-        <td>${d.degradation.toFixed(1)}</td>
-        <td>${d.damage_class}</td>
-        <td class="${riskClass}">${d.risk}</td>
-    </tr>
+        <tr>
+    <td>${d.label}</td>
+    <td>${d.sensor_id}</td>
+    <td>${d.fft.toFixed(2)}</td>
+    <td>${d.degradation.toFixed(1)}</td>
+    <td>${d.damage_class}</td>
+    <td class="${riskClass}">${d.risk}</td>
+</tr>
     `;
 
 });
@@ -2624,13 +2754,14 @@ realtimeHistory
     }
 
     rows += `
-    <tr>
-        <td>${d.sensor_id}</td>
-        <td>${d.degradation.toFixed(1)}</td>
-        <td>${d.forecast.toFixed(1)}</td>
-        <td>${d.damage_class}</td>
-        <td class="${priorityClass}">${d.priority}</td>
-    </tr>
+  <tr>
+    <td>${d.label}</td>
+    <td>${d.sensor_id}</td>
+    <td>${d.degradation.toFixed(1)}</td>
+    <td>${d.forecast.toFixed(1)}</td>
+    <td>${d.damage_class}</td>
+    <td class="${priorityClass}">${d.priority}</td>
+</tr>
     `;
 
 });
