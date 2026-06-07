@@ -23,6 +23,15 @@ let bridgeData = [];
 let liveData = null;
 let currentRefreshRate = 2000;
 
+let selectedTheme =
+localStorage.getItem("smartBridgeTheme") || "dark";
+
+let preferredTheme =
+selectedTheme;
+
+let emergencyModeActive =
+false;
+
 let selectedTimeRange = "today";
 
 let realtimeHistory = [];
@@ -450,8 +459,9 @@ if(page === "settings"){
     `;
 
     setTimeout(initSettingsPage,100);
+    
 }
-
+setTimeout(updateEmergencyBanner, 50);
 }
 
 // ================= DASHBOARD =================
@@ -580,6 +590,7 @@ c.innerHTML = `
 
 startClock();
 initTimeRangeControls();
+initReportControls();
 fetchData();
 fetchLive();
 
@@ -685,6 +696,7 @@ fetch("http://127.0.0.1:5000/api/live")
     setText("forecast", d.forecast_score_next_30d.toFixed(1));
     setText("bridgeStatus", status);
     setText("lastUpdate", d.last_update);
+    handleAutoEmergencyMode(d);
 
     const alarmPanel = document.getElementById("alarmPanel");
 
@@ -1817,12 +1829,14 @@ let analyticsForecastChart = null;
 function initAnalytics(){
 
 if(!bridgeData || bridgeData.length === 0){
-    fetch("http://127.0.0.1:5000/api/history")
+
+    fetch(`${API_BASE}/api/history?range=${selectedTimeRange}`)
     .then(r => r.json())
-    .then(d => {
-        bridgeData = d;
+    .then(result => {
+        bridgeData = result.data || [];
         renderAnalytics();
-    });
+    })
+    .catch(err => console.error("Analytics API Error:", err));
 
     return;
 }
@@ -2042,8 +2056,7 @@ bridgeData.slice(0,15).forEach(d=>{
     }
 
     rows += `
-    <tr>
-        <tr>
+<tr>
     <td>${formatTimeLabel(d.timestamp)}</td>
     <td>${d.sensor_id}</td>
     <td>${d.fft_peak_freq.toFixed(2)}</td>
@@ -2066,12 +2079,13 @@ function initForecastPage(){
 
 if(!bridgeData || bridgeData.length === 0){
 
-    fetch("http://127.0.0.1:5000/api/history")
+    fetch(`${API_BASE}/api/history?range=${selectedTimeRange}`)
     .then(r => r.json())
-    .then(d => {
-        bridgeData = d;
+    .then(result => {
+        bridgeData = result.data || [];
         renderForecastPage();
-    });
+    })
+    .catch(err => console.error("Forecast API Error:", err));
 
     return;
 }
@@ -2316,9 +2330,48 @@ document.getElementById("themeSelect");
 
 if(themeSelect){
 
+    themeSelect.innerHTML = `
+        <option value="dark">Dark Industrial</option>
+        <option value="blue">Blue Control Room</option>
+        <option value="emerald">Emerald Monitoring</option>
+        <option value="slate">Slate Professional</option>
+        <option value="emergency">Emergency Mode</option>
+    `;
+
+    themeSelect.value =
+    emergencyModeActive ? "emergency" : selectedTheme;
+
     themeSelect.addEventListener("change", function(){
 
-        applyDashboardTheme(this.value);
+        const chosenTheme =
+        this.value;
+
+        selectedTheme =
+        chosenTheme;
+
+        preferredTheme =
+        chosenTheme;
+
+        localStorage.setItem(
+            "smartBridgeTheme",
+            chosenTheme
+        );
+
+        if(emergencyModeActive && chosenTheme !== "emergency"){
+
+            applyDashboardTheme(
+                "emergency",
+                false
+            );
+
+        }else{
+
+            applyDashboardTheme(
+                chosenTheme,
+                true
+            );
+
+        }
 
     });
 
@@ -2334,9 +2387,9 @@ document.getElementById("settingsApiStatus");
 const result =
 document.getElementById("apiTestResult");
 
-fetch("http://127.0.0.1:5000/")
-.then(r => r.text())
-.then(text => {
+fetch(`${API_BASE}/api/status`)
+.then(r => r.json())
+.then(data => {
 
     if(statusText){
         statusText.innerText = "ONLINE";
@@ -2345,7 +2398,7 @@ fetch("http://127.0.0.1:5000/")
 
     if(result){
         result.innerText =
-        "API connected successfully: " + text;
+        "API connected successfully: " + data.system;
         result.className = "api-online";
     }
 
@@ -2367,33 +2420,37 @@ fetch("http://127.0.0.1:5000/")
 
 }
 
-function applyDashboardTheme(theme){
+function applyDashboardTheme(theme, savePreference = true){
 
-if(theme === "dark"){
+if(savePreference){
 
-    document.body.style.background = "#0b1220";
+    selectedTheme = theme;
+    preferredTheme = theme;
 
-    document.querySelector(".sidebar").style.background =
-    "#0f172a";
-
-}
-
-if(theme === "blue"){
-
-    document.body.style.background = "#071a2f";
-
-    document.querySelector(".sidebar").style.background =
-    "#082f49";
+    localStorage.setItem(
+        "smartBridgeTheme",
+        selectedTheme
+    );
 
 }
 
-if(theme === "green"){
+document.body.classList.remove(
+    "theme-dark",
+    "theme-blue",
+    "theme-emerald",
+    "theme-slate",
+    "theme-emergency"
+);
 
-    document.body.style.background = "#052e16";
+document.body.classList.add(
+    "theme-" + theme
+);
 
-    document.querySelector(".sidebar").style.background =
-    "#064e3b";
+const themeSelect =
+document.getElementById("themeSelect");
 
+if(themeSelect){
+    themeSelect.value = theme;
 }
 
 }
@@ -2769,7 +2826,587 @@ realtimeHistory
 table.innerHTML = rows;
 
 }
+
+function initReportControls(){
+
+const dashboard =
+document.getElementById("page-content");
+
+if(!dashboard){
+    return;
+}
+
+if(document.getElementById("reportActionBar")){
+    return;
+}
+
+const timeBar =
+document.querySelector(".time-filter-bar");
+
+const reportBar =
+document.createElement("div");
+
+reportBar.id =
+"reportActionBar";
+
+reportBar.className =
+"report-action-bar";
+
+reportBar.innerHTML = `
+
+    <div>
+        <h3>Report Center</h3>
+        <p>Export monitoring data based on selected time range.</p>
+    </div>
+
+    <div class="report-buttons">
+
+        <button class="report-btn primary" onclick="exportReportCSV()">
+            Export CSV
+        </button>
+
+        <button class="report-btn secondary" onclick="exportReportPDF()">
+            Export PDF Report
+        </button>
+
+    </div>
+
+`;
+
+if(timeBar){
+    timeBar.insertAdjacentElement("afterend", reportBar);
+}else{
+    dashboard.prepend(reportBar);
+}
+
+}
+
+function getReportSummary(){
+
+const data =
+bridgeData && bridgeData.length > 0
+? bridgeData
+: [];
+
+let latest =
+liveData || data[data.length - 1];
+
+if(!latest){
+    return null;
+}
+
+const avgTemp =
+data.length > 0
+? data.reduce((s,d)=>s + Number(d.temperature_c || 0),0) / data.length
+: latest.temperature_c;
+
+const avgHumidity =
+data.length > 0
+? data.reduce((s,d)=>s + Number(d.humidity_percent || 0),0) / data.length
+: latest.humidity_percent;
+
+const avgWind =
+data.length > 0
+? data.reduce((s,d)=>s + Number(d.wind_speed_mps || 0),0) / data.length
+: latest.wind_speed_mps;
+
+const avgDeg =
+data.length > 0
+? data.reduce((s,d)=>s + Number(d.degradation_score || 0),0) / data.length
+: latest.degradation_score;
+
+const avgForecast =
+data.length > 0
+? data.reduce((s,d)=>s + Number(d.forecast_score_next_30d || 0),0) / data.length
+: latest.forecast_score_next_30d;
+
+let risk = "LOW";
+
+if(avgDeg > 40){
+    risk = "MEDIUM";
+}
+
+if(avgDeg > 70){
+    risk = "HIGH";
+}
+
+let recommendation =
+"Bridge condition is stable. Continue normal monitoring.";
+
+if(avgDeg > 40 || avgForecast > 60){
+    recommendation =
+    "Routine inspection is recommended within 30 days.";
+}
+
+if(avgDeg > 70 || avgForecast > 80){
+    recommendation =
+    "Immediate engineering inspection and maintenance planning are required.";
+}
+
+return {
+    bridgeId: "B001",
+    bridgeName: "Suramadu Bridge",
+    range: typeof getRangeLabel === "function"
+    ? getRangeLabel(selectedTimeRange)
+    : selectedTimeRange,
+    lastUpdate: latest.last_update || new Date().toLocaleString("id-ID"),
+    totalData: data.length,
+    avgTemp,
+    avgHumidity,
+    avgWind,
+    avgDeg,
+    avgForecast,
+    risk,
+    recommendation
+};
+
+}
+
+function exportReportCSV(){
+
+if(!bridgeData || bridgeData.length === 0){
+    alert("Data belum tersedia untuk diexport.");
+    return;
+}
+
+const summary =
+getReportSummary();
+
+const rows = [];
+
+rows.push(["SMART BRIDGE DIGITAL TWIN REPORT"]);
+rows.push(["Bridge ID", summary.bridgeId]);
+rows.push(["Bridge Name", summary.bridgeName]);
+rows.push(["Time Range", summary.range]);
+rows.push(["Last Update", summary.lastUpdate]);
+rows.push(["Total Data", summary.totalData]);
+rows.push(["Average Temperature", summary.avgTemp.toFixed(2)]);
+rows.push(["Average Humidity", summary.avgHumidity.toFixed(2)]);
+rows.push(["Average Wind Speed", summary.avgWind.toFixed(2)]);
+rows.push(["Average Degradation", summary.avgDeg.toFixed(2)]);
+rows.push(["Average Forecast", summary.avgForecast.toFixed(2)]);
+rows.push(["Risk Level", summary.risk]);
+rows.push(["Recommendation", summary.recommendation]);
+rows.push([]);
+
+rows.push([
+    "Timestamp",
+    "Bridge ID",
+    "Sensor ID",
+    "Temperature",
+    "Humidity",
+    "Wind Speed",
+    "FFT Peak",
+    "Degradation",
+    "Damage Class",
+    "Forecast Score"
+]);
+
+bridgeData.forEach(d => {
+
+    rows.push([
+        d.timestamp || "",
+        d.bridge_id || "B001",
+        d.sensor_id || "",
+        Number(d.temperature_c || 0).toFixed(2),
+        Number(d.humidity_percent || 0).toFixed(2),
+        Number(d.wind_speed_mps || 0).toFixed(2),
+        Number(d.fft_peak_freq || 0).toFixed(2),
+        Number(d.degradation_score || 0).toFixed(2),
+        d.damage_class || "",
+        Number(d.forecast_score_next_30d || 0).toFixed(2)
+    ]);
+
+});
+
+const csv =
+rows.map(row =>
+    row.map(value =>
+        `"${String(value).replace(/"/g,'""')}"`
+    ).join(",")
+).join("\n");
+
+const blob =
+new Blob([csv], {
+    type:"text/csv;charset=utf-8;"
+});
+
+const url =
+URL.createObjectURL(blob);
+
+const a =
+document.createElement("a");
+
+const date =
+new Date().toISOString().slice(0,10);
+
+a.href = url;
+
+a.download =
+`smart_bridge_report_${selectedTimeRange}_${date}.csv`;
+
+document.body.appendChild(a);
+
+a.click();
+
+document.body.removeChild(a);
+
+URL.revokeObjectURL(url);
+
+}
+
+function exportReportPDF(){
+
+const summary =
+getReportSummary();
+
+if(!summary){
+    alert("Data belum tersedia untuk dibuat report.");
+    return;
+}
+
+const latestRows =
+bridgeData
+.slice(-15)
+.reverse()
+.map(d => `
+    <tr>
+        <td>${d.timestamp || "-"}</td>
+        <td>${d.sensor_id || "-"}</td>
+        <td>${Number(d.temperature_c || 0).toFixed(1)}</td>
+        <td>${Number(d.wind_speed_mps || 0).toFixed(1)}</td>
+        <td>${Number(d.degradation_score || 0).toFixed(1)}</td>
+        <td>${d.damage_class || "-"}</td>
+        <td>${Number(d.forecast_score_next_30d || 0).toFixed(1)}</td>
+    </tr>
+`)
+.join("");
+
+const reportWindow =
+window.open("", "_blank");
+
+reportWindow.document.write(`
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Smart Bridge Report</title>
+
+<style>
+
+body{
+font-family:Arial, sans-serif;
+padding:30px;
+color:#111827;
+}
+
+.header{
+border-bottom:3px solid #2563eb;
+padding-bottom:15px;
+margin-bottom:25px;
+}
+
+.header h1{
+margin:0;
+font-size:28px;
+}
+
+.header p{
+margin:6px 0 0 0;
+color:#475569;
+}
+
+.summary-grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:12px;
+margin-bottom:25px;
+}
+
+.summary-card{
+border:1px solid #cbd5e1;
+border-radius:10px;
+padding:12px;
+}
+
+.summary-card strong{
+display:block;
+font-size:13px;
+color:#475569;
+margin-bottom:5px;
+}
+
+.summary-card span{
+font-size:20px;
+font-weight:bold;
+}
+
+.recommendation{
+border-left:5px solid #2563eb;
+background:#eff6ff;
+padding:15px;
+margin-bottom:25px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+font-size:12px;
+}
+
+th{
+background:#1e293b;
+color:white;
+padding:8px;
+text-align:left;
+}
+
+td{
+border-bottom:1px solid #cbd5e1;
+padding:8px;
+}
+
+.footer{
+margin-top:30px;
+font-size:12px;
+color:#64748b;
+}
+
+@media print{
+button{
+display:none;
+}
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+    <h1>SMART BRIDGE DIGITAL TWIN REPORT</h1>
+    <p>Generated from Smart Bridge AI Monitoring Dashboard</p>
+</div>
+
+<div class="summary-grid">
+
+    <div class="summary-card">
+        <strong>Bridge ID</strong>
+        <span>${summary.bridgeId}</span>
+    </div>
+
+    <div class="summary-card">
+        <strong>Bridge Name</strong>
+        <span>${summary.bridgeName}</span>
+    </div>
+
+    <div class="summary-card">
+        <strong>Time Range</strong>
+        <span>${summary.range}</span>
+    </div>
+
+    <div class="summary-card">
+        <strong>Last Update</strong>
+        <span>${summary.lastUpdate}</span>
+    </div>
+
+    <div class="summary-card">
+        <strong>Average Temperature</strong>
+        <span>${summary.avgTemp.toFixed(2)} °C</span>
+    </div>
+
+    <div class="summary-card">
+        <strong>Average Wind Speed</strong>
+        <span>${summary.avgWind.toFixed(2)} m/s</span>
+    </div>
+
+    <div class="summary-card">
+        <strong>Average Degradation</strong>
+        <span>${summary.avgDeg.toFixed(2)}</span>
+    </div>
+
+    <div class="summary-card">
+        <strong>Risk Level</strong>
+        <span>${summary.risk}</span>
+    </div>
+
+</div>
+
+<div class="recommendation">
+    <h2>Maintenance Recommendation</h2>
+    <p>${summary.recommendation}</p>
+</div>
+
+<h2>Latest Sensor Data</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Timestamp</th>
+            <th>Sensor</th>
+            <th>Temp</th>
+            <th>Wind</th>
+            <th>Degradation</th>
+            <th>Damage</th>
+            <th>Forecast</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        ${latestRows}
+    </tbody>
+</table>
+
+<div class="footer">
+    <p>This report was generated automatically by Smart Bridge Digital Twin Monitoring System.</p>
+</div>
+
+<script>
+window.onload = function(){
+    window.print();
+}
+</script>
+
+</body>
+</html>
+
+`);
+
+reportWindow.document.close();
+
+}
+
+function isBridgeCritical(d){
+
+if(!d){
+    return false;
+}
+
+const degradation =
+Number(d.degradation_score || 0);
+
+const forecast =
+Number(d.forecast_score_next_30d || 0);
+
+const damageClass =
+String(d.damage_class || "").toLowerCase();
+
+if(degradation > 70){
+    return true;
+}
+
+if(forecast > 85){
+    return true;
+}
+
+if(damageClass.includes("severe")){
+    return true;
+}
+
+if(damageClass.includes("critical")){
+    return true;
+}
+
+return false;
+
+}
+
+function handleAutoEmergencyMode(d){
+
+const critical =
+isBridgeCritical(d);
+
+if(critical && !emergencyModeActive){
+
+    emergencyModeActive =
+    true;
+
+    applyDashboardTheme(
+        "emergency",
+        false
+    );
+
+}
+
+if(!critical && emergencyModeActive){
+
+    emergencyModeActive =
+    false;
+
+    applyDashboardTheme(
+        preferredTheme,
+        false
+    );
+
+}
+
+updateEmergencyBanner();
+
+}
+
+function updateEmergencyBanner(){
+
+const pageContent =
+document.getElementById("page-content");
+
+if(!pageContent){
+    return;
+}
+
+let banner =
+document.getElementById("emergencyAutoBanner");
+
+if(!emergencyModeActive){
+
+    if(banner){
+        banner.remove();
+    }
+
+    return;
+}
+
+if(!banner){
+
+    banner =
+    document.createElement("div");
+
+    banner.id =
+    "emergencyAutoBanner";
+
+    banner.className =
+    "emergency-auto-banner";
+
+    pageContent.prepend(banner);
+
+}
+
+let degradation =
+liveData ? Number(liveData.degradation_score || 0).toFixed(1) : "--";
+
+let forecast =
+liveData ? Number(liveData.forecast_score_next_30d || 0).toFixed(1) : "--";
+
+let damage =
+liveData ? liveData.damage_class : "--";
+
+banner.innerHTML = `
+    <div>
+        <h2>🚨 EMERGENCY MODE ACTIVE</h2>
+        <p>
+            Critical bridge condition detected.
+            Degradation: <strong>${degradation}</strong> |
+            Forecast: <strong>${forecast}</strong> |
+            Damage: <strong>${damage}</strong>
+        </p>
+    </div>
+`;
+
+}
+
 // ================= INIT =================
+applyDashboardTheme(selectedTheme);
 
 showPage("dashboard");
 

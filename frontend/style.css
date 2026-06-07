@@ -524,3 +524,288 @@ color:white;
 grid-template-columns:1fr 1fr;
 }
 }
+
+/* =========================
+   PROFESSIONAL THEME SYSTEM
+========================= */
+
+:root{
+--bg-main:#0b1220;
+--bg-sidebar:#0f172a;
+--bg-card:#1e293b;
+--bg-card-soft:#0f172a;
+--text-main:#ffffff;
+--text-muted:#94a3b8;
+--accent:#2563eb;
+--accent-soft:rgba(37,99,235,0.18);
+--border:#334155;
+--danger:#ef4444;
+--warning:#facc15;
+--success:#22c55e;
+}
+
+body.theme-dark{
+--bg-main:#0b1220;
+--bg-sidebar:#0f172a;
+--bg-card:#1e293b;
+--bg-card-soft:#111827;
+--text-main:#ffffff;
+--text-muted:#94a3b8;
+--accent:#2563eb;
+--accent-soft:rgba(37,99,235,0.18);
+--border:#334155;
+}
+
+body.theme-blue{
+--bg-main:#071a2f;
+--bg-sidebar:#082f49;
+--bg-card:#0f2742;
+--bg-card-soft:#06192e;
+--text-main:#e0f2fe;
+--text-muted:#7dd3fc;
+--accent:#38bdf8;
+--accent-soft:rgba(56,189,248,0.18);
+--border:#075985;
+}
+
+body.theme-emerald{
+--bg-main:#052e16;
+--bg-sidebar:#064e3b;
+--bg-card:#065f46;
+--bg-card-soft:#022c22;
+--text-main:#ecfdf5;
+--text-muted:#a7f3d0;
+--accent:#34d399;
+--accent-soft:rgba(52,211,153,0.18);
+--border:#047857;
+}
+
+body.theme-slate{
+--bg-main:#111827;
+--bg-sidebar:#1f2937;
+--bg-card:#273449;
+--bg-card-soft:#111827;
+--text-main:#f9fafb;
+--text-muted:#cbd5e1;
+--accent:#94a3b8;
+--accent-soft:rgba(148,163,184,0.18);
+--border:#475569;
+}
+
+body.theme-emergency{
+--bg-main:#1a0505;
+--bg-sidebar:#2b0909;
+--bg-card:#3f1111;
+--bg-card-soft:#1f0808;
+--text-main:#fff1f2;
+--text-muted:#fecaca;
+--accent:#ef4444;
+--accent-soft:rgba(239,68,68,0.20);
+--border:#7f1d1d;
+}
+
+body{
+background:var(--bg-main);
+color:var(--text-main);
+transition:background 0.3s ease,color 0.3s ease;
+}
+
+.sidebar{
+background:var(--bg-sidebar) !important;
+border-right:1px solid var(--border);
+}
+
+.sidebar li{
+background:var(--bg-card) !important;
+border:1px solid transparent;
+}
+
+.sidebar li:hover{
+background:var(--accent-soft) !important;
+border-color:var(--accent);
+}
+
+.card,
+.status-card,
+.summary-box,
+.chart-box,
+.cctv-box,
+.traffic-card,
+.traffic-canvas-box,
+.traffic-chart-box,
+.analytics-card,
+.analytics-chart-box,
+.sensor-table-box,
+.forecast-card,
+.forecast-chart-box,
+.maintenance-box,
+.forecast-table-box,
+.settings-card,
+.settings-panel,
+.time-info-box{
+background:var(--bg-card) !important;
+border:1px solid var(--border);
+box-shadow:0 10px 25px rgba(0,0,0,0.18);
+}
+
+.card h3,
+.status-card h2,
+.chart-box h3,
+.analytics-card h3,
+.forecast-card h3,
+.settings-card h3{
+color:var(--text-muted);
+}
+
+.time-select,
+.settings-input{
+background:var(--bg-card-soft) !important;
+color:var(--text-main) !important;
+border:1px solid var(--border) !important;
+}
+
+.settings-button,
+.report-btn.primary{
+background:var(--accent) !important;
+color:white;
+}
+
+.settings-button:hover,
+.report-btn.primary:hover{
+filter:brightness(1.1);
+}
+
+body.theme-emergency .card,
+body.theme-emergency .status-card,
+body.theme-emergency .chart-box,
+body.theme-emergency .forecast-card,
+body.theme-emergency .analytics-card{
+box-shadow:0 0 18px rgba(239,68,68,0.18);
+}
+
+/* =========================
+   REPORT CENTER
+========================= */
+
+.report-action-bar{
+display:flex;
+justify-content:space-between;
+align-items:center;
+gap:20px;
+background:linear-gradient(135deg,var(--bg-card),var(--bg-card-soft));
+border:1px solid var(--border);
+border-radius:14px;
+padding:16px 18px;
+margin-bottom:20px;
+box-shadow:0 12px 30px rgba(0,0,0,0.22);
+}
+
+.report-action-bar h3{
+margin:0;
+color:var(--text-main);
+}
+
+.report-action-bar p{
+margin:5px 0 0 0;
+color:var(--text-muted);
+font-size:14px;
+}
+
+.report-buttons{
+display:flex;
+gap:12px;
+}
+
+.report-btn{
+border:none;
+padding:11px 16px;
+border-radius:9px;
+cursor:pointer;
+font-weight:bold;
+letter-spacing:0.3px;
+}
+
+.report-btn.secondary{
+background:transparent;
+color:var(--text-main);
+border:1px solid var(--border);
+}
+
+.report-btn.secondary:hover{
+background:var(--accent-soft);
+border-color:var(--accent);
+}
+
+@media(max-width:900px){
+.report-action-bar{
+flex-direction:column;
+align-items:flex-start;
+}
+
+.report-buttons{
+width:100%;
+}
+
+.report-btn{
+width:100%;
+}
+}
+
+/* =========================
+   AUTO EMERGENCY MODE
+========================= */
+
+.emergency-auto-banner{
+background:linear-gradient(135deg,#7f1d1d,#450a0a);
+border:1px solid #ef4444;
+border-radius:14px;
+padding:16px 20px;
+margin-bottom:20px;
+box-shadow:0 0 25px rgba(239,68,68,0.35);
+animation:emergencyPulse 1.4s infinite;
+}
+
+.emergency-auto-banner h2{
+margin:0;
+color:#fee2e2;
+letter-spacing:0.5px;
+}
+
+.emergency-auto-banner p{
+margin:8px 0 0 0;
+color:#fecaca;
+}
+
+.emergency-auto-banner strong{
+color:white;
+}
+
+body.theme-emergency .sidebar{
+box-shadow:4px 0 24px rgba(239,68,68,0.22);
+}
+
+body.theme-emergency .card,
+body.theme-emergency .status-card,
+body.theme-emergency .chart-box,
+body.theme-emergency .analytics-card,
+body.theme-emergency .forecast-card,
+body.theme-emergency .settings-card{
+border-color:#ef4444 !important;
+}
+
+body.theme-emergency #bridgeStatus{
+color:#fecaca;
+text-shadow:0 0 12px rgba(239,68,68,0.8);
+}
+
+@keyframes emergencyPulse{
+0%{
+    box-shadow:0 0 18px rgba(239,68,68,0.25);
+}
+50%{
+    box-shadow:0 0 34px rgba(239,68,68,0.55);
+}
+100%{
+    box-shadow:0 0 18px rgba(239,68,68,0.25);
+}
+}
